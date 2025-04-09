@@ -11,10 +11,10 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BillCreatedEvent {
+public class PaymentCompletedEvent {
+    private Long paymentId;
     private Long billId;
     private Long customerId;
     private Double amount;
-    private LocalDateTime dueDate;
-    private LocalDateTime createdAt;
+    private LocalDateTime paymentDate;
 } 

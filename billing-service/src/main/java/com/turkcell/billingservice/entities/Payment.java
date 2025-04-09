@@ -2,6 +2,7 @@ package com.turkcell.billingservice.entities;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -14,31 +15,37 @@ import java.util.UUID;
 @Entity
 @Table(name = "payments")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Payment {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bill_id", nullable = false)
-    private Bill bill;
+    @Column(name = "bill_id", nullable = false)
+    private Long billId;
 
-    @Column(nullable = false)
-    private BigDecimal amount;
-
-    @Column(nullable = false)
-    private String paymentMethod;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Column(nullable = false)
-    private String transactionId;
+    private Double amount;
+
+    @Column(name = "payment_method", nullable = false)
+    private String paymentMethod; // CREDIT_CARD, BANK_TRANSFER, etc.
 
     @Column(nullable = false)
+    private String status; // SUCCESS, FAILED, PENDING
+
+    @Column(name = "payment_date", nullable = false)
     private LocalDateTime paymentDate;
 
+    @Column(name = "transaction_id")
+    private String transactionId;
+
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAtTimestamp;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;

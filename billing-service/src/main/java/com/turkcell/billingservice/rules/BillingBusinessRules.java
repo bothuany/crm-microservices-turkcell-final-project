@@ -1,44 +1,42 @@
 package com.turkcell.billingservice.rules;
 
-import com.turkcell.billingservice.entities.Invoice;
+import com.turkcell.billingservice.entities.Bill;
 import com.turkcell.billingservice.exceptions.BusinessException;
-import com.turkcell.billingservice.repositories.InvoiceRepository;
+import com.turkcell.billingservice.repositories.BillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class BillingBusinessRules {
-    private final InvoiceRepository invoiceRepository;
+    private final BillRepository billRepository;
 
-    public void checkIfInvoiceExists(UUID id) {
-        if (!invoiceRepository.existsById(id)) {
+    public void checkIfBillExists(Long id) {
+        if (!billRepository.existsById(id)) {
             throw new BusinessException("Fatura bulunamadı: " + id);
         }
     }
 
-    public void checkIfInvoiceAlreadyPaid(UUID id) {
-        Invoice invoice = invoiceRepository.findById(id)
+    public void checkIfBillAlreadyPaid(Long id) {
+        Bill bill = billRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Fatura bulunamadı"));
-        if (invoice.isPaid()) {
+        if (bill.getStatus().equals("PAID")) {
             throw new BusinessException("Fatura zaten ödenmiş");
         }
     }
 
-    public void validatePaymentAmount(UUID invoiceId, double paymentAmount) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
+    public void validatePaymentAmount(Long billId, double paymentAmount) {
+        Bill bill = billRepository.findById(billId)
                 .orElseThrow(() -> new BusinessException("Fatura bulunamadı"));
-        if (paymentAmount != invoice.getAmount()) {
+        if (paymentAmount != bill.getAmount()) {
             throw new BusinessException("Ödeme tutarı fatura tutarı ile eşleşmiyor");
         }
     }
 
-    public void validateDueDate(String dueDate) {
-        LocalDate date = LocalDate.parse(dueDate);
-        if (date.isBefore(LocalDate.now())) {
+    public void validateDueDate(LocalDate dueDate) {
+        if (dueDate.isBefore(LocalDate.now())) {
             throw new BusinessException("Son ödeme tarihi geçmiş tarih olamaz");
         }
     }

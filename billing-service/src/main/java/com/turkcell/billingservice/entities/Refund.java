@@ -9,41 +9,37 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "bills")
+@Table(name = "refunds")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Bill {
+public class Refund {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "payment_id", nullable = false)
+    private Long paymentId;
+
+    @Column(name = "bill_id", nullable = false)
+    private Long billId;
+
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
-
-    @Column(name = "contract_id")
-    private Long contractId;
 
     @Column(nullable = false)
     private Double amount;
 
     @Column(nullable = false)
-    private String status; // PENDING, PAID, OVERDUE, REFUNDED
-
-    @Column(name = "due_date", nullable = false)
-    private LocalDateTime dueDate;
+    private String status; // PENDING, COMPLETED, FAILED
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "paid_at")
-    private LocalDateTime paidAt;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
     @Column
-    private String description;
-
-    public void setPaidAt(LocalDateTime paidAt) {
-        this.paidAt = paidAt;
-    }
+    private String reason;
 } 

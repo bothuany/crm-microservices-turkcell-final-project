@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Fatura</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .company-info {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .bill-info {
+            margin-bottom: 30px;
+        }
+        .bill-details {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .amount {
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FATURA</h1>
+    </div>
+
+    <div class="company-info">
+        <h3>Turkcell</h3>
+        <p>Aydınevler Mahallesi İnönü Caddesi No:20</p>
+        <p>Küçükyalı Ofispark B Blok - Maltepe / İSTANBUL</p>
+        <p>Vergi Dairesi: Büyük Mükellefler</p>
+        <p>Vergi No: 8760012274</p>
+    </div>
+
+    <div class="bill-info">
+        <table>
+            <tr>
+                <th>Fatura No:</th>
+                <td th:text="${bill.id}"></td>
+                <th>Düzenleme Tarihi:</th>
+                <td th:text="${#temporals.format(bill.createdAt, 'dd/MM/yyyy')}"></td>
+            </tr>
+            <tr>
+                <th>Müşteri No:</th>
+                <td th:text="${bill.customerId}"></td>
+                <th>Son Ödeme Tarihi:</th>
+                <td th:text="${#temporals.format(bill.dueDate, 'dd/MM/yyyy')}"></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="bill-details">
+        <h3>Fatura Detayları</h3>
+        <p th:text="${bill.description}"></p>
+        <div class="amount">
+            <strong>Toplam Tutar: </strong>
+            <span th:text="${formattedAmount}"></span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Bu fatura elektronik olarak oluşturulmuştur.</p>
+        <p>Sorularınız için 532 532 0000 numaralı telefonu arayabilirsiniz.</p>
+    </div>
+</body>
+</html> 

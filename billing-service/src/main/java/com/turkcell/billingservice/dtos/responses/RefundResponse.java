@@ -1,4 +1,4 @@
-package com.turkcell.billingservice.events;
+package com.turkcell.billingservice.dtos.responses;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,10 +11,14 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BillCreatedEvent {
+public class RefundResponse {
+    private Long id;
+    private Long paymentId;
     private Long billId;
     private Long customerId;
     private Double amount;
-    private LocalDateTime dueDate;
+    private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
+    private String reason;
 } 

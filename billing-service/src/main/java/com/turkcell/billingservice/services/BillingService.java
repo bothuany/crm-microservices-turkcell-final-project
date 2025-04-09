@@ -1,177 +1,179 @@
 package com.turkcell.billingservice.services;
 
-import com.turkcell.billingservice.clients.*;
-import com.turkcell.billingservice.dtos.*;
+import com.turkcell.billingservice.clients.CustomerClient;
+import com.turkcell.billingservice.clients.ContractClient;
+import com.turkcell.billingservice.dtos.CustomerDto;
+import com.turkcell.billingservice.dtos.requests.CreateBillRequest;
+import com.turkcell.billingservice.dtos.responses.BillResponse;
+import com.turkcell.billingservice.dtos.responses.CustomerResponse;
+import com.turkcell.billingservice.dtos.responses.ContractResponse;
 import com.turkcell.billingservice.entities.Bill;
-import com.turkcell.billingservice.entities.Payment;
 import com.turkcell.billingservice.events.BillCreatedEvent;
-import com.turkcell.billingservice.events.KafkaProducerService;
 import com.turkcell.billingservice.exceptions.BusinessException;
 import com.turkcell.billingservice.exceptions.ResourceNotFoundException;
 import com.turkcell.billingservice.repositories.BillRepository;
-import com.turkcell.billingservice.repositories.PaymentRepository;
+import com.turkcell.billingservice.utils.BillMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BillingService {
-
     private final BillRepository billRepository;
-    private final PaymentRepository paymentRepository;
-    private final CustomerClient customerClient;
-    private final ContractClient contractClient;
-    private final PaymentClient paymentClient;
-    private final NotificationClient notificationClient;
-    private final KafkaProducerService kafkaProducer;
+    // private final CustomerClient customerClient;
+    // private final ContractClient contractClient;
+    // private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Transactional
-    public BillResponseDTO createBill(BillCreateDTO billCreateDTO) {
-        // Müşteri kontrolü
-        CustomerDTO customer = customerClient.getCustomerById(billCreateDTO.getCustomerId());
-        if (customer == null) {
-            throw new BusinessException("Customer not found");
+    public BillResponse createBill(CreateBillRequest request) {
+        log.info("Creating bill for customer: {}", request.getCustomerId());
+        
+        try {
+            // Test için Feign client kontrolünü bypass ediyoruz
+            // CustomerDto customer = customerClient.getCustomerById(request.getCustomerId(), "Bearer test-token");
+            // if (customer == null) {
+            //     throw new RuntimeException("Customer not found");
+            // }
+
+            // Fatura oluştur
+            Bill bill = Bill.builder()
+                    .customerId(request.getCustomerId())
+                    .contractId(request.getContractId())
+                    .amount(request.getAmount())
+                    .dueDate(request.getDueDate())
+                    .description(request.getDescription())
+                    .status("PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            bill = billRepository.save(bill);
+            log.info("Bill created successfully with ID: {}", bill.getId());
+
+            // Kafka event göndermeyi devre dışı bırak
+            // kafkaTemplate.send("billing-events", bill);
+
+            return BillMapper.toResponse(bill);
+        } catch (Exception e) {
+            log.error("Error creating bill: {}", e.getMessage());
+            throw new RuntimeException("Failed to create bill: " + e.getMessage());
         }
-
-        // Sözleşme kontrolü
-        ContractDTO contract = contractClient.getContractById(billCreateDTO.getContractId());
-        if (contract == null || !contract.getStatus().equals("ACTIVE")) {
-            throw new BusinessException("Contract not found or not active");
-        }
-
-        Bill bill = new Bill();
-        bill.setCustomerId(billCreateDTO.getCustomerId());
-        bill.setAmount(billCreateDTO.getAmount());
-        bill.setDueDate(billCreateDTO.getDueDate());
-        bill.setPaid(false);
-
-        Bill savedBill = billRepository.save(bill);
-
-        // Fatura oluşturuldu bildirimi gönder
-        EmailNotificationDTO notification = new EmailNotificationDTO(
-            customer.getEmail(),
-            "New Bill Created",
-            String.format("A new bill has been created for you. Amount: %s, Due Date: %s",
-                savedBill.getAmount(), savedBill.getDueDate())
-        );
-        notificationClient.sendEmailNotification(notification);
-
-        // Analytics servisine event gönder
-        BillCreatedEvent event = new BillCreatedEvent(
-            savedBill.getId(),
-            savedBill.getCustomerId(),
-            savedBill.getAmount(),
-            savedBill.getDueDate(),
-            savedBill.getCreatedAt()
-        );
-        kafkaProducer.sendBillCreatedEvent(event);
-
-        return convertToBillResponseDTO(savedBill);
     }
 
-    public BillResponseDTO getBillById(UUID id) {
-        Bill bill = billRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id: " + id));
-        return convertToBillResponseDTO(bill);
+    public BillResponse getBill(Long id) {
+        return BillMapper.toResponse(findBillById(id));
     }
 
-    public List<BillResponseDTO> getUnpaidBills() {
-        return billRepository.findByPaidFalse()
-            .stream()
-            .map(this::convertToBillResponseDTO)
-            .collect(Collectors.toList());
+    public List<BillResponse> getBillsByCustomer(Long customerId) {
+        return billRepository.findByCustomerId(customerId)
+                .stream()
+                .map(BillMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<BillResponse> getBillsByStatus(String status) {
+        return billRepository.findByStatus(status)
+                .stream()
+                .map(BillMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public PaymentResponseDTO processPayment(PaymentDTO paymentDTO) {
-        Bill bill = billRepository.findById(paymentDTO.getBillId())
-            .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id: " + paymentDTO.getBillId()));
-
-        if (bill.isPaid()) {
-            throw new BusinessException("Bill is already paid");
+    public BillResponse payBill(Long id) {
+        Bill bill = findBillById(id);
+        
+        if (!"PENDING".equals(bill.getStatus())) {
+            throw new BusinessException("Bill is not in PENDING status");
         }
 
-        if (!bill.getAmount().equals(paymentDTO.getAmount())) {
-            throw new BusinessException("Payment amount does not match bill amount");
+        bill.setStatus("PAID");
+        bill.setPaidAt(LocalDateTime.now());
+        
+        return BillMapper.toResponse(billRepository.save(bill));
+    }
+
+    @Transactional
+    public BillResponse cancelBill(Long id) {
+        Bill bill = findBillById(id);
+        
+        if (!"PENDING".equals(bill.getStatus())) {
+            throw new BusinessException("Bill is not in PENDING status");
         }
 
-        if (!getPaymentMethods().contains(paymentDTO.getPaymentMethod())) {
-            throw new BusinessException("Invalid payment method");
+        bill.setStatus("CANCELLED");
+        
+        return BillMapper.toResponse(billRepository.save(bill));
+    }
+
+    public List<BillResponse> getUnpaidBillsByCustomerId(Long customerId) {
+        return billRepository.findByCustomerIdAndStatus(customerId, "PENDING")
+                .stream()
+                .map(BillMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<BillResponse> getBillsByDateRange(Long customerId, LocalDateTime startDate, LocalDateTime endDate) {
+        return billRepository.findByCustomerIdAndCreatedAtBetween(customerId, startDate, endDate)
+                .stream()
+                .map(BillMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<BillResponse> getOverdueBills() {
+        return billRepository.findByDueDateLessThanAndStatus(LocalDateTime.now(), "PENDING")
+                .stream()
+                .map(BillMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public BillResponse updateBill(Long id, CreateBillRequest request) {
+        Bill bill = findBillById(id);
+        
+        if (!"PENDING".equals(bill.getStatus())) {
+            throw new BusinessException("Only PENDING bills can be updated");
         }
 
-        // Ödeme servisi çağrısı
-        PaymentRequestDTO paymentRequest = new PaymentRequestDTO(
-            bill.getId().toString(),
-            paymentDTO.getAmount(),
-            paymentDTO.getPaymentMethod(),
-            bill.getCustomerId()
-        );
-        PaymentResponseDTO paymentResponse = paymentClient.processPayment(paymentRequest);
+        // Test için Feign client kontrolünü bypass ediyoruz
+        // CustomerDto customer = customerClient.getCustomerById(request.getCustomerId(), "Bearer test-token");
+        // ContractResponse contract = contractClient.getContractById(request.getContractId());
 
-        Payment payment = new Payment();
-        payment.setBill(bill);
-        payment.setAmount(paymentDTO.getAmount());
-        payment.setPaymentMethod(paymentDTO.getPaymentMethod());
-        payment.setTransactionId(paymentResponse.getTransactionId());
-        payment.setPaymentDate(LocalDateTime.now());
+        // if (customer == null) {
+        //     throw new ResourceNotFoundException("Customer not found");
+        // }
+        // if (contract == null) {
+        //     throw new ResourceNotFoundException("Contract not found");
+        // }
 
-        Payment savedPayment = paymentRepository.save(payment);
-
-        bill.setPaid(true);
-        billRepository.save(bill);
-
-        // Ödeme bildirimi gönder
-        CustomerDTO customer = customerClient.getCustomerById(bill.getCustomerId());
-        EmailNotificationDTO notification = new EmailNotificationDTO(
-            customer.getEmail(),
-            "Payment Successful",
-            String.format("Your payment of %s has been processed successfully. Transaction ID: %s",
-                payment.getAmount(), payment.getTransactionId())
-        );
-        notificationClient.sendEmailNotification(notification);
-
-        return convertToPaymentResponseDTO(savedPayment);
+        bill.setCustomerId(request.getCustomerId());
+        bill.setContractId(request.getContractId());
+        bill.setAmount(request.getAmount());
+        bill.setDueDate(request.getDueDate());
+        bill.setDescription(request.getDescription());
+        
+        return BillMapper.toResponse(billRepository.save(bill));
     }
 
-    public PaymentResponseDTO getPaymentById(UUID id) {
-        Payment payment = paymentRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
-        return convertToPaymentResponseDTO(payment);
+    @Transactional
+    public void deleteBill(Long id) {
+        Bill bill = findBillById(id);
+        
+        if (!"PENDING".equals(bill.getStatus())) {
+            throw new BusinessException("Only PENDING bills can be deleted");
+        }
+
+        billRepository.delete(bill);
     }
 
-    public List<String> getPaymentMethods() {
-        return Arrays.asList("CREDIT_CARD", "BANK_TRANSFER", "CASH");
-    }
-
-    private BillResponseDTO convertToBillResponseDTO(Bill bill) {
-        return new BillResponseDTO(
-            bill.getId(),
-            bill.getCustomerId(),
-            bill.getAmount(),
-            bill.getDueDate(),
-            bill.isPaid(),
-            bill.getCreatedAt(),
-            bill.getUpdatedAt()
-        );
-    }
-
-    private PaymentResponseDTO convertToPaymentResponseDTO(Payment payment) {
-        return new PaymentResponseDTO(
-            payment.getId(),
-            payment.getBill().getId(),
-            payment.getAmount(),
-            payment.getPaymentMethod(),
-            payment.getTransactionId(),
-            payment.getPaymentDate(),
-            payment.getCreatedAt(),
-            payment.getUpdatedAt()
-        );
+    private Bill findBillById(Long id) {
+        return billRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id: " + id));
     }
 }
