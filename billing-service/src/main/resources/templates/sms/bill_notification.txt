@@ -1,0 +1,1 @@
+Dear ${customerName}, your bill of ${amount} TL is due on ${dueDate}. Please make the payment to avoid late fees. Bill ID: ${billId} 

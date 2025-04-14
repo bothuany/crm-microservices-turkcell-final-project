@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bill Reminder</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f8f9fa; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bill Reminder</h1>
+        </div>
+        <div class="content">
+            <p>Dear ${customerName},</p>
+            <p>This is a reminder that your bill of ${amount} TL is due on ${dueDate}.</p>
+            <p>Bill Details:</p>
+            <ul>
+                <li>Bill ID: ${billId}</li>
+                <li>Due Date: ${dueDate}</li>
+                <li>Amount: ${amount} TL</li>
+            </ul>
+            <p>Please make the payment before the due date to avoid any late fees.</p>
+            <p style="text-align: center;">
+                <a href="${paymentUrl}" class="button">Pay Now</a>
+            </p>
+        </div>
+        <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>If you have any questions, please contact our customer service.</p>
+        </div>
+    </div>
+</body>
+</html> 

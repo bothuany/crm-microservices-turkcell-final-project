@@ -238,6 +238,32 @@ services:
       - CONFIGURL=http://config-server:8070
       - SPRING_APPLICATION_NAME=planservice
 
+  # Add the billing service
+  billing-service:
+    build:
+      context: ./billing-service
+      dockerfile: Dockerfile
+    container_name: billing-service
+    ports:
+      - "8050:8050"
+      - "8052:8052"
+    networks:
+      - app-network
+    depends_on:
+      - discovery-server
+      - config-server
+      - postgres_5434
+      - kafka
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres_5434:5432/billing
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8888/eureka
+      - SPRING_CLOUD_CONFIG_PROFILE=dev
+      - CONFIGURL=http://config-server:8070
+      - SPRING_APPLICATION_NAME=billingservice
+
 networks:
   app-network:
     driver: bridge

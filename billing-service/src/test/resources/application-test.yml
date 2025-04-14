@@ -1,0 +1,93 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: sa
+    password: 
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+
+logging:
+  level:
+    com.turkcell.billingservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
+    io.github.resilience4j: DEBUG
+
+# Circuit breaker konfigürasyonu test için
+resilience4j:
+  circuitbreaker:
+    instances:
+      customerService:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+      contractService:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+      createBill:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+  retry:
+    instances:
+      customerService:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+      contractService:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+      createBill:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+  timelimiter:
+    instances:
+      customerService:
+        timeoutDuration: 5000ms
+      contractService:
+        timeoutDuration: 5000ms
+      createBill:
+        timeoutDuration: 5000ms
+
+# OpenTelemetry konfigürasyonu
+opentelemetry:
+  instrumentation:
+    enabled: false
+  semconv-stability:
+    enabled: true
+
+# Servis endpoint'leri
+customer:
+  service:
+    url: http://localhost:8081
+contract:
+  service:
+    url: http://localhost:8082
+plan:
+  service:
+    url: http://localhost:8083
+notification:
+  service:
+    url: http://localhost:8084 

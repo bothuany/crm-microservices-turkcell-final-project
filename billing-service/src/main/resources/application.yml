@@ -6,14 +6,13 @@ spring:
   config:
     import: optional:configserver:http://localhost:8888
   security:
-    user:
-      name: user
-      password: 12345
-  web:
-    security:
-      enabled: true
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/auth/realms/turkcell
+          jwk-set-uri: http://localhost:8080/auth/realms/turkcell/protocol/openid-connect/certs
   datasource:
-    url: jdbc:postgresql://localhost:5434/billing
+    url: jdbc:postgresql://localhost:5432/billing_db
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
@@ -24,48 +23,156 @@ spring:
       connection-timeout: 20000
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        jdbc:
-          time_zone: UTC
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: billing-service-group
       auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.turkcell.billingservice.events"
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  cache:
+    type: redis
+    redis:
+      host: localhost
+      port: 6379
+      time-to-live: 60000
+      cache-null-values: false
+  sleuth:
+    sampler:
+      probability: 1.0
+    propagation:
+      type: B3
+  zipkin:
+    base-url: http://localhost:9411
   cloud:
     config:
-      enabled: false
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
-      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
-      - org.springframework.cloud.config.client.ConfigClientAutoConfiguration
-      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      enabled: true
+    discovery:
+      enabled: true
+      client:
+        service-id: eureka-server
+    loadbalancer:
+      retry:
+        enabled: true
+    circuitbreaker:
+      resilience4j:
+        instances:
+          customer-service:
+            failure-rate-threshold: 50
+            wait-duration-in-open-state: 10000
+            permitted-number-of-calls-in-half-open-state: 2
+            sliding-window-size: 10
+            sliding-window-type: COUNT_BASED
+            minimum-number-of-calls: 5
+          contract-service:
+            failure-rate-threshold: 50
+            wait-duration-in-open-state: 10000
+            permitted-number-of-calls-in-half-open-state: 2
+            sliding-window-size: 10
+            sliding-window-type: COUNT_BASED
+            minimum-number-of-calls: 5
+          plan-service:
+            failure-rate-threshold: 50
+            wait-duration-in-open-state: 10000
+            permitted-number-of-calls-in-half-open-state: 2
+            sliding-window-size: 10
+            sliding-window-type: COUNT_BASED
+            minimum-number-of-calls: 5
+          notification-service:
+            failure-rate-threshold: 50
+            wait-duration-in-open-state: 10000
+            permitted-number-of-calls-in-half-open-state: 2
+            sliding-window-size: 10
+            sliding-window-type: COUNT_BASED
+            minimum-number-of-calls: 5
+  retry:
+    max-attempts: 3
+    initial-interval: 1000
+    multiplier: 2.0
+    max-interval: 10000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      customerService:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+      contractService:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+      createBill:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 60000ms
+        slidingWindowSize: 10
+        slidingWindowType: COUNT_BASED
+  retry:
+    instances:
+      customerService:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+      contractService:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+      createBill:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        retryExceptions:
+          - java.lang.Exception
+  timelimiter:
+    instances:
+      customerService:
+        timeoutDuration: 5000ms
+      contractService:
+        timeoutDuration: 5000ms
+      createBill:
+        timeoutDuration: 5000ms
 
 server:
-  port: 8051
+  port: 8082
   servlet:
-    context-path: /api/v1
+    context-path: /api/v1/billing
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
     operationsSorter: method
     tagsSorter: alpha
-    tryItOutEnabled: false
-    filter: false
-    displayRequestDuration: true
+    tryItOutEnabled: true
+    filter: true
     persistAuthorization: true
+    oauth2RedirectUrl: /swagger-ui/oauth2-redirect.html
+    docExpansion: none
+    defaultModelsExpandDepth: -1
+    defaultModelExpandDepth: 1
+    defaultModelRendering: example
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+    deepLinking: true
+    syntaxHighlight:
+      activated: true
+      theme: monokai
+    layout: StandaloneLayout
+    validatorUrl: none
   api-docs:
     path: /v3/api-docs
   show-actuator: true
@@ -73,25 +180,140 @@ springdoc:
   paths-to-match: /**
   security:
     enabled: true
+    oauth2:
+      enabled: true
+      client-id: billing-service
+      client-secret: billing-service-secret
+      authorization-url: http://localhost:8080/oauth2/authorize
+      token-url: http://localhost:8080/oauth2/token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  server:
+    port: 8052
 
 logging:
   level:
     root: INFO
     com.turkcell.billingservice: DEBUG
-    org.springframework.web: INFO
-    org.hibernate: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    org.springframework.cloud: INFO
+    org.springframework.security: INFO
   file:
     name: logs/billing-service.log
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, metrics
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: full
+  circuitbreaker:
+    enabled: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    metadata-map:
+      zone: primary
+
+opentelemetry:
+  instrumentation:
+    spring-webmvc:
+      enabled: true
+  exporter:
+    otlp:
+      endpoint: http://localhost:4317
   metrics:
-    export:
+    exporter:
       prometheus:
         enabled: true
+  traces:
+    exporter:
+      otlp:
+        endpoint: http://localhost:4317
+
+customer:
+  service:
+    url: http://localhost:8081
+contract:
+  service:
+    url: http://localhost:8082
+plan:
+  service:
+    url: http://localhost:8083
+notification:
+  service:
+    url: http://localhost:8084
+  email:
+    from: billing@turkcell.com
+    subject-prefix: [Billing Service]
+  sms:
+    sender: TURKCELL
+    template-id: BILLING_NOTIFICATION
+
+stripe:
+  api:
+    key: ${STRIPE_API_KEY}
+
+rate-limit:
+  get:
+    max-requests: 100
+    time-window: 1m
+  post:
+    max-requests: 50
+    time-window: 1m
+  put:
+    max-requests: 50
+    time-window: 1m
+  delete:
+    max-requests: 50
+    time-window: 1m
+
+billing:
+  openapi:
+    dev-url: http://localhost:8080
+    prod-url: https://api.turkcell.com/billing
+
+# RabbitMQ Konfigürasyonu
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+
+payment:
+  gateway:
+    url: https://api.paymentgateway.com
+    api-key: ${PAYMENT_GATEWAY_API_KEY}
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      initial-interval: 1000
+      multiplier: 2.0
+      max-interval: 10000
+
+scheduling:
+  bill-reminder:
+    cron: 0 0 9 * * ?  # Her gün saat 09:00'da
+    days-before-due: 3  # Vadesine 3 gün kala hatırlatma

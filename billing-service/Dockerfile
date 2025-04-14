@@ -1,11 +1,21 @@
-FROM maven:3.9.6-eclipse-temurin-21 AS build
-
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
-COPY . /app/
-
+COPY pom.xml .
+COPY src ./src
+RUN apk add --no-cache maven
 RUN mvn clean package -DskipTests
 
-FROM eclipse-temurin:21-jdk
-COPY --from=build /app/target/billing-service-0.0.1-SNAPSHOT.jar /app/billing-service.jar
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/billing-service-0.0.1-SNAPSHOT.jar app.jar
 
-ENTRYPOINT ["java", "-jar", "/app/billing-service.jar"]
+# Add timezone
+RUN apk add --no-cache tzdata
+ENV TZ=Europe/Istanbul
+
+# Expose ports
+EXPOSE 8050
+EXPOSE 8052
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]

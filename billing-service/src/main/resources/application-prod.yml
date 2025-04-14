@@ -1,0 +1,50 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:billing_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+server:
+  port: ${SERVER_PORT:8082}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    root: WARN
+    com.turkcell.billingservice: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+
+payment:
+  gateway:
+    url: ${PAYMENT_GATEWAY_URL:https://api.paymentgateway.com}
+    api-key: ${PAYMENT_GATEWAY_API_KEY}
+    timeout: 10000
+
+notification:
+  email:
+    enabled: true
+    from: ${EMAIL_FROM:billing@turkcell.com}
+  sms:
+    enabled: true
+    sender: ${SMS_SENDER:TURKCELL} 

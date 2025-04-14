@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres_5434:5432/billing
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8050
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8888/eureka}
+    fetch-registry: true
+    register-with-eureka: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  server:
+    port: 8052
+
+logging:
+  level:
+    root: INFO
+    com.turkcell.billingservice: DEBUG
+    org.springframework: INFO
+    org.hibernate: INFO
+
+payment:
+  gateway:
+    url: http://localhost:8080/mock-payment
+    api-key: dev-key
+    timeout: 5000
+
+notification:
+  email:
+    enabled: true
+    from: dev@turkcell.com
+  sms:
+    enabled: true
+    sender: TURKCELL-DEV 

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  billing-service:
+    build:
+      context: ./billing-service
+      dockerfile: Dockerfile
+    ports:
+      - "8050:8050"
+      - "8052:8052"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres_5434:5432/billing
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8888/eureka
+      - SPRING_CLOUD_CONFIG_PROFILE=dev
+      - SPRING_APPLICATION_NAME=billingservice
+    restart: on-failure 

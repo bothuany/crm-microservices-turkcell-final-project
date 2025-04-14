@@ -5,16 +5,21 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.UUID;
 
+/**
+ * Fatura oluşturulduğunda yayınlanan olay sınıfı.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class BillCreatedEvent {
-    private Long billId;
-    private Long customerId;
-    private Double amount;
-    private LocalDateTime dueDate;
-    private LocalDateTime createdAt;
+    private UUID billId;
+    private UUID customerId;
+    private Double totalAmount;
+    private LocalDate dueDate;
+    private String status;
+    private String description;
 } 
